@@ -244,6 +244,29 @@ describe("terminal outcome ownership", () => {
     expect(stage).not.toHaveBeenCalled()
   })
 
+  test("completion toast exposes the Compact Mode result", async () => {
+    const { result } = renderHook(() => useVideoDownload(), { wrapper })
+
+    const { settled } = await startDownload(result)
+    await waitFor(() => expect(downloadVideo).toHaveBeenCalled())
+
+    await emit({
+      downloadId: sentDownloadId(),
+      status: "completed",
+      progress: 100,
+      filename: "clip.mp4",
+      message: "Compressed to 720p H.265"
+    })
+
+    expect((await settled).ok).toBe(true)
+    expect(successToast).toHaveBeenCalledWith(
+      "Video download completed!",
+      expect.objectContaining({
+        description: "Compressed to 720p H.265 · Saved: clip.mp4"
+      })
+    )
+  })
+
   test("a cancellation is not dressed up as a failure", async () => {
     const { result } = renderHook(() => useVideoDownload(), { wrapper })
 
@@ -396,3 +419,4 @@ describe("cancellation", () => {
     expect(stage).not.toHaveBeenCalled()
   })
 })
+
