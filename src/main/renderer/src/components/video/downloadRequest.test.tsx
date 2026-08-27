@@ -80,6 +80,7 @@ describe("the video download request", () => {
       url: URL,
       height: 2160,
       container: "mkv",
+      compact_mode: "h265-720p",
       time_range: undefined,
       precise_cut: true,
       title: "Big Buck Bunny"
@@ -260,3 +261,4 @@ describe("the audio download request", () => {
     }
   })
 })
+
