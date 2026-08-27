@@ -16,7 +16,7 @@ import { isTerminalReason } from "@/lib/downloadOutcome"
 import { cn } from "@/lib/utils"
 import { DownloadProgressBar } from "./DownloadProgressBar"
 import { motion } from "framer-motion"
-import { Headphones, Scissors, Video } from "lucide-react"
+import { Archive, Headphones, Scissors, Video } from "lucide-react"
 
 interface VideoDownloadButtonProps {
   maxDuration: number
@@ -34,6 +34,7 @@ export function VideoDownloadButton({
     videoInfo,
     videoTimeRange,
     selectedTier,
+    selectedCompactMode,
     selectedAudioLanguage,
     setIsDownloadingVideo,
     videoPreciseCut,
@@ -70,6 +71,9 @@ export function VideoDownloadButton({
         height: selectedTier.height,
         // the container we displayed, so the label cannot disagree with the file
         container: selectedTier.container,
+        ...(selectedCompactMode && selectedCompactMode !== "original"
+          ? { compact_mode: selectedCompactMode }
+          : {}),
         // absent unless this video really offered a choice of dubs
         ...(selectedAudioLanguage
           ? { audio_language: selectedAudioLanguage }
@@ -138,6 +142,18 @@ export function VideoDownloadButton({
               {selectedAudioLanguage
                 ? languageName(selectedAudioLanguage)
                 : "Best available"}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-slate-500 dark:text-slate-500" />
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Storage:
+              </span>
+            </div>
+            <span className="font-medium text-slate-900 dark:text-white">
+              {compactModeLabel(selectedCompactMode)}
             </span>
           </div>
 
@@ -243,9 +259,18 @@ export function VideoDownloadButton({
       {/* Helper Text */}
       {!videoDownloadMutation.isPending && (
         <div className="text-xs text-slate-500 dark:text-slate-500 text-center">
-          Video and audio will be merged automatically
+          {selectedCompactMode && selectedCompactMode !== "original"
+            ? "The original is replaced only after a smaller H.265 file passes verification"
+            : "Video and audio will be merged automatically"}
         </div>
       )}
     </motion.div>
   )
+}
+
+function compactModeLabel(mode?: string) {
+  if (mode === "h265-1080p") return "1080p H.265"
+  if (mode === "h265-720p") return "720p H.265"
+  if (mode === "h265-480p") return "480p H.265"
+  return "Original"
 }

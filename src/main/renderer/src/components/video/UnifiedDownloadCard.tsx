@@ -27,6 +27,7 @@ import { toast } from "sonner"
 import { AudioDownloadButton } from "./AudioDownloadButton"
 import { AudioFormatDropdown } from "./AudioFormatDropdown"
 import { AudioTrackDropdown } from "./AudioTrackDropdown"
+import { CompactModeDropdown } from "./CompactModeDropdown"
 import { TimeRangeSelector } from "./TimeRangeSelector"
 import { VideoDownloadButton } from "./VideoDownloadButton"
 import { VideoQualityDropdown } from "./VideoQualityDropdown"
@@ -91,6 +92,8 @@ function YouTubeDownloadCard({
 
   const [isVideoQualityDropdownOpen, setIsVideoQualityDropdownOpen] =
     useState(false)
+  const [isCompactModeDropdownOpen, setIsCompactModeDropdownOpen] =
+    useState(false)
   const [activeTab, setActiveTab] = useState("video")
 
   const isValidAudioTimeRange = validateTimeRange(
@@ -124,7 +127,9 @@ function YouTubeDownloadCard({
         "bg-white/60 border-slate-300/50 backdrop-blur-sm",
         "shadow-xl",
         "font-space-grotesk",
-        isVideoQualityDropdownOpen && activeTab === "video" && "mb-80",
+        (isVideoQualityDropdownOpen || isCompactModeDropdownOpen) &&
+          activeTab === "video" &&
+          "mb-80",
         className
       )}
     >
@@ -161,6 +166,11 @@ function YouTubeDownloadCard({
                 tiers={videoInfo.quality_tiers}
                 isVisible={showVideoQualityDropdown}
                 onOpenChange={setIsVideoQualityDropdownOpen}
+              />
+
+              <CompactModeDropdown
+                isVisible={showVideoQualityDropdown && !!selectedTier}
+                onOpenChange={setIsCompactModeDropdownOpen}
               />
 
               {/* no video to download means no language to pick for it - the

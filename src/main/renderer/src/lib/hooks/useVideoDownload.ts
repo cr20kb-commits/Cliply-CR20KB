@@ -105,6 +105,7 @@ export const useVideoDownload = () => {
               indeterminate: progressData.indeterminate,
               message:
                 progressData.error ||
+                progressData.message ||
                 `Downloading video... ${(progressData.progress || 0).toFixed(1)}%`,
               outputFile: progressData.filename,
               error: progressData.error

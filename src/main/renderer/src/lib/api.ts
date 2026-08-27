@@ -22,6 +22,14 @@ export interface QualityTier {
 // youtube served with no re-encode at all
 export type AudioMode = "mp3" | "m4a" | "original"
 
+// Safe post-download storage profiles. "original" skips the extra FFmpeg
+// pass; every H.265 mode first writes and verifies a smaller sibling file.
+export type CompactMode =
+  | "original"
+  | "h265-1080p"
+  | "h265-720p"
+  | "h265-480p"
+
 /**
  * one dubbed audio language the video carries
  *
@@ -41,6 +49,7 @@ export interface DownloadProgress {
   eta?: string
   filename?: string
   error?: string
+  message?: string
   // failures now arrive as events rather than a rejected invoke, so the report
   // payload's technical detail rides along with them
   details?: string
@@ -177,6 +186,7 @@ export interface VideoDownloadRequest {
   // the container of the row that was *displayed*, echoed back so the label the
   // user read can never disagree with the file they get
   container: "mp4" | "mkv"
+  compact_mode?: CompactMode
   // see AudioDownloadRequest.audio_language
   audio_language?: string
   // see AudioDownloadRequest.download_id

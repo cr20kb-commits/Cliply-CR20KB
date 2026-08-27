@@ -9,6 +9,10 @@ const fs = require("fs")
 
 const { ERROR_CODES } = require("./ytdlp-engine")
 const { describeError } = require("../utils/analytics-helpers")
+const {
+  compactDownloadedVideo,
+  compactModeLabel
+} = require("./compact-mode")
 
 // the statuses the renderer hooks already understand
 const STATUS = {
@@ -22,12 +26,20 @@ class DownloadRunner {
   /**
    * @param {Object} options - {engine, updater, sendEvent, trackEvent, logAudit}
    */
-  constructor({ engine, updater, sendEvent, trackEvent = () => {}, logAudit = () => {} }) {
+  constructor({
+    engine,
+    updater,
+    sendEvent,
+    trackEvent = () => {},
+    logAudit = () => {},
+    compactVideo = compactDownloadedVideo
+  }) {
     this.engine = engine
     this.updater = updater
     this.sendEvent = sendEvent
     this.trackEvent = trackEvent
     this.logAudit = logAudit
+    this.compactVideo = compactVideo
 
     // downloadId -> {handle, type, title, platform, started}
     this.active = new Map()
@@ -84,6 +96,7 @@ class DownloadRunner {
       title = "unknown",
       formatId = "unknown",
       trimmed = false,
+      compactMode = "original",
       createHandle
     } = options
 
@@ -139,7 +152,30 @@ class DownloadRunner {
 
       try {
         const result = await handle.promise
-        return this.settleCompleted({ downloadId, type, platform, formatId, trimmed, result })
+        const compactOutcome = await this.compactResult({
+          downloadId,
+          type,
+          compactMode,
+          result
+        })
+        const current = this.active.get(downloadId)
+
+        // A cancel during FFmpeg leaves the original untouched. If the safe
+        // replacement already completed, completion wins over the tiny window
+        // in which a late cancel could otherwise relabel a finished file.
+        if (current && current.cancelled && !compactOutcome.replaced) {
+          return this.settleCancelled(downloadId)
+        }
+
+        return this.settleCompleted({
+          downloadId,
+          type,
+          platform,
+          formatId,
+          trimmed,
+          result: { ...result, filePath: compactOutcome.filePath || result.filePath },
+          compactOutcome
+        })
       } catch (error) {
         lastError = error
 
@@ -196,7 +232,80 @@ class DownloadRunner {
     }
   }
 
-  settleCompleted({ downloadId, type, platform, formatId, trimmed, result }) {
+  async compactResult({ downloadId, type, compactMode, result }) {
+    const original = {
+      filePath: result && result.filePath,
+      replaced: false,
+      mode: compactMode,
+      reason: "original"
+    }
+
+    if (type !== "combined" || compactMode === "original") {
+      return original
+    }
+
+    const entry = this.active.get(downloadId)
+    if (!entry || entry.cancelled) {
+      return { ...original, reason: "cancelled" }
+    }
+
+    this.sendEvent(downloadId, {
+      status: STATUS.DOWNLOADING,
+      progress: undefined,
+      indeterminate: true,
+      message: `Compressing to ${compactModeLabel(compactMode)}...`
+    })
+
+    let ffmpegPath = null
+    try {
+      ffmpegPath = this.engine.getFfmpegPath()
+    } catch (error) {
+      console.warn(`[${downloadId}] compact mode could not find FFmpeg:`, describeError(error))
+    }
+
+    try {
+      return await this.compactVideo({
+        inputPath: result && result.filePath,
+        mode: compactMode,
+        ffmpegPath,
+        isCancelled: () => {
+          const current = this.active.get(downloadId)
+          return !current || current.cancelled
+        },
+        onProcess: (child) => {
+          const current = this.active.get(downloadId)
+          if (!current) return
+
+          current.handle = {
+            cancel: () => {
+              if (!child || child.killed) return false
+
+              try {
+                return child.kill() !== false
+              } catch {
+                return false
+              }
+            }
+          }
+        }
+      })
+    } catch (error) {
+      // Compact mode is a post-download optimisation. A bug in it must still
+      // leave the completed download available to the user.
+      console.warn(`[${downloadId}] compact mode failed:`, describeError(error))
+      return { ...original, reason: "compact_failed", error }
+    }
+  }
+
+  settleCompleted({
+    downloadId,
+    type,
+    platform,
+    formatId,
+    trimmed,
+    result,
+    compactOutcome
+  }) {
     // the reservation is where the wait began - before the ipc acknowledgement
     // and before the spawn, which is what the user actually sat through
     const entry = this.active.get(downloadId)
@@ -213,7 +322,8 @@ class DownloadRunner {
     this.sendEvent(downloadId, {
       status: STATUS.COMPLETED,
       progress: 100,
-      filename
+      filename,
+      message: compactCompletionMessage(compactOutcome)
     })
 
     // no title and no filename: what was downloaded is not a question
@@ -390,6 +500,20 @@ function fileSizeOf(filePath) {
   } catch {
     return 0
   }
+}
+
+function compactCompletionMessage(outcome) {
+  if (!outcome || outcome.mode === "original") return undefined
+
+  if (outcome.replaced) {
+    return `Compressed to ${compactModeLabel(outcome.mode)}`
+  }
+
+  if (outcome.reason === "not_smaller") {
+    return "The compact copy was not smaller, so the original was kept"
+  }
+
+  return "Compact conversion was unavailable, so the original was kept"
 }
 
 module.exports = { DownloadRunner, STATUS }

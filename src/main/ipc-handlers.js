@@ -27,6 +27,7 @@ const { getSimplePlatformOptions } = require("./utils/ytdlp-formats")
 const { resolveDownloadId } = require("./utils/download-id")
 
 const { DownloadRunner } = require("./services/download-runner")
+const { isCompactMode } = require("./services/compact-mode")
 const { SettingsStore } = require("./services/settings-store")
 const { ERROR_CODES } = require("./services/ytdlp-engine")
 
@@ -699,6 +700,7 @@ class IPCHandlers {
         audio_language: audioLanguage,
         time_range: rawTimeRange,
         precise_cut: preciseCut,
+        compact_mode: compactMode = "original",
         title = "video",
         format_id: simpleFormatId
       } = data
@@ -707,6 +709,14 @@ class IPCHandlers {
       const timeRange = normalizeTimeRange(rawTimeRange)
 
       if (targetPlatform === "youtube") {
+        if (!isCompactMode(compactMode)) {
+          return this.createError(
+            "Invalid compact mode",
+            "Choose Original, 1080p H.265, 720p H.265, or 480p H.265",
+            "INVALID_COMPACT_MODE"
+          )
+        }
+
         // the template is native now: yt-dlp fills in the title and the height
         const outputTemplate = buildVideoOutputTemplate({ timeRange })
 
@@ -745,6 +755,7 @@ class IPCHandlers {
           // analytics reads the quality off this - the height is the quality now
           formatId: `${height}p`,
           trimmed: Boolean(timeRange),
+          compactMode,
           createHandle
         })
 

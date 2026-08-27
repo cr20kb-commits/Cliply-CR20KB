@@ -1,5 +1,6 @@
 import type {
   AudioMode,
+  CompactMode,
   TimeRange,
   QualityTier,
   VideoInfoResponse,
@@ -36,6 +37,8 @@ interface YouTubeState {
   // left over from a previous video
   selectedTier: QualityTier | null
   setSelectedTier: (tier: QualityTier | null) => void
+  selectedCompactMode: CompactMode
+  setSelectedCompactMode: (mode: CompactMode) => void
   isDownloadingVideo: boolean
   setIsDownloadingVideo: (downloading: boolean) => void
   videoPreciseCut: boolean
@@ -67,6 +70,7 @@ export const useYouTubeStore = create<YouTubeState>((set) => ({
   isDownloadingAudio: false,
   videoTimeRange: { start: 0, end: 0 },
   selectedTier: null,
+  selectedCompactMode: "original",
   isDownloadingVideo: false,
   videoPreciseCut: true,
   audioPreciseCut: true,
@@ -90,6 +94,7 @@ export const useYouTubeStore = create<YouTubeState>((set) => ({
     set({ isDownloadingAudio: downloading }),
   setVideoTimeRange: (range) => set({ videoTimeRange: range }),
   setSelectedTier: (tier) => set({ selectedTier: tier }),
+  setSelectedCompactMode: (mode) => set({ selectedCompactMode: mode }),
   setIsDownloadingVideo: (downloading) =>
     set({ isDownloadingVideo: downloading }),
   setVideoPreciseCut: (enabled) => set({ videoPreciseCut: enabled }),
@@ -109,6 +114,7 @@ export const useYouTubeStore = create<YouTubeState>((set) => ({
       isDownloadingAudio: false,
       videoTimeRange: { start: 0, end: 0 },
       selectedTier: null,
+      selectedCompactMode: "original",
       isDownloadingVideo: false,
       videoPreciseCut: true,
       audioPreciseCut: true,

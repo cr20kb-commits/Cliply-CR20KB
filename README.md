@@ -11,6 +11,10 @@
 
 cliply started as a small weekend project, just wanted a simple way to grab videos without ads, bloat, or shady sites. it's free, fast, and respects your privacy. no logins, no ads, no cross-site tracking, no bs. it does send a little usage data so we can find bugs, and one click in the Tools menu turns that off — [what it sends, exactly](PRIVACY.md).
 
+> **CR20KB fork:** the `feature/cr20kb-compact-mode` branch adds safe
+> post-download H.265 storage profiles. See [CR20KB.md](CR20KB.md) for the
+> modification notice and safety guarantees.
+
 ## what it is
 
 cliply is a cross-platform video downloader with a nice interface.

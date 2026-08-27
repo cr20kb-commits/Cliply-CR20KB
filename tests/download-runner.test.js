@@ -25,19 +25,93 @@ class FakeHandle extends EventEmitter {
   }
 }
 
-function createRunner({ updater = null } = {}) {
+function createRunner({ updater = null, compactVideo, engine = {} } = {}) {
   const events = []
   const tracked = []
 
   const runner = new DownloadRunner({
-    engine: {},
+    engine,
     updater,
+    compactVideo,
     sendEvent: (downloadId, payload) => events.push({ downloadId, ...payload }),
     trackEvent: (name, payload) => tracked.push({ name, ...payload })
   })
 
   return { runner, events, tracked }
 }
+
+describe("compact mode", () => {
+  test("runs after download and reports an indeterminate FFmpeg phase", async () => {
+    const compactVideo = jest.fn(async ({ inputPath, mode, ffmpegPath }) => ({
+      filePath: inputPath,
+      mode,
+      replaced: true,
+      reason: "replaced",
+      originalSize: 1000,
+      compactSize: 400
+    }))
+    const engine = { getFfmpegPath: () => "/bin/ffmpeg" }
+    const { runner, events } = createRunner({ compactVideo, engine })
+    const handle = new FakeHandle()
+
+    const running = runner.run({
+      ...BASE,
+      compactMode: "h265-720p",
+      createHandle: () => handle
+    })
+    await settle()
+    handle.resolve({ filePath: "/downloads/a.mp4" })
+
+    const result = await running
+
+    expect(result.success).toBe(true)
+    expect(compactVideo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputPath: "/downloads/a.mp4",
+        mode: "h265-720p",
+        ffmpegPath: "/bin/ffmpeg"
+      })
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        status: "downloading",
+        indeterminate: true,
+        message: "Compressing to 720p H.265..."
+      })
+    )
+    expect(events[events.length - 1]).toMatchObject({
+      status: "completed",
+      message: "Compressed to 720p H.265"
+    })
+  })
+
+  test("keeps a completed original when compact output is not smaller", async () => {
+    const compactVideo = jest.fn(async ({ inputPath, mode }) => ({
+      filePath: inputPath,
+      mode,
+      replaced: false,
+      reason: "not_smaller",
+      originalSize: 1000,
+      compactSize: 1100
+    }))
+    const { runner, events } = createRunner({
+      compactVideo,
+      engine: { getFfmpegPath: () => "/bin/ffmpeg" }
+    })
+    const handle = new FakeHandle()
+
+    const running = runner.run({
+      ...BASE,
+      compactMode: "h265-1080p",
+      createHandle: () => handle
+    })
+    await settle()
+    handle.resolve({ filePath: "/downloads/a.mp4" })
+
+    expect((await running).success).toBe(true)
+    expect(events[events.length - 1].message).toMatch(/original was kept/)
+  })
+})
 
 const BASE = {
   downloadId: "combined_1",
