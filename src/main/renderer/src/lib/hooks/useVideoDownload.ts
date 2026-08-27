@@ -113,10 +113,17 @@ export const useVideoDownload = () => {
 
             // Handle completion
             if (progressData.status === "completed") {
+              const savedFile = progressData.filename
+                ? `Saved: ${progressData.filename}`
+                : undefined
+
               toast.success("Video download completed!", {
-                description: progressData.filename
-                  ? `Saved: ${progressData.filename}`
-                  : undefined,
+                // Compact Mode's terminal message is important: it tells the
+                // user whether the source was actually replaced or why the
+                // safety checks kept it. Do not hide it behind the filename.
+                description: [progressData.message, savedFile]
+                  .filter(Boolean)
+                  .join(" · ") || undefined,
                 action: {
                   label: "Open Folder",
                   onClick: () => systemApi.openDownloadFolder()
@@ -279,3 +286,4 @@ export const useVideoDownload = () => {
     isCancelled: downloadState.status === "cancelled"
   }
 }
+
