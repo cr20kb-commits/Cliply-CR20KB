@@ -70,7 +70,9 @@ export const useYouTubeStore = create<YouTubeState>((set) => ({
   isDownloadingAudio: false,
   videoTimeRange: { start: 0, end: 0 },
   selectedTier: null,
-  selectedCompactMode: "original",
+  // CR20KB is the compact-focused fork: use the balanced profile unless the
+  // user explicitly opts out with Original or selects another target.
+  selectedCompactMode: "h265-720p",
   isDownloadingVideo: false,
   videoPreciseCut: true,
   audioPreciseCut: true,
@@ -114,7 +116,7 @@ export const useYouTubeStore = create<YouTubeState>((set) => ({
       isDownloadingAudio: false,
       videoTimeRange: { start: 0, end: 0 },
       selectedTier: null,
-      selectedCompactMode: "original",
+      selectedCompactMode: "h265-720p",
       isDownloadingVideo: false,
       videoPreciseCut: true,
       audioPreciseCut: true,
@@ -122,3 +124,4 @@ export const useYouTubeStore = create<YouTubeState>((set) => ({
       isLoadingDownloadPath: false
     })
 }))
+
