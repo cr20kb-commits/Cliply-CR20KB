@@ -11,6 +11,11 @@ with the rest of the project.
 - **720p H.265** — H.265/HEVC, capped at 720p without upscaling.
 - **480p H.265** — H.265/HEVC, capped at 480p without upscaling.
 
+The CR20KB build defaults to the balanced **720p H.265** profile. Choose
+**Original** explicitly when no post-download conversion is wanted. The final
+notification reports whether conversion replaced the file or the safety checks
+kept the original.
+
 Compact Mode uses Cliply's existing bundled FFmpeg and `libx265`. It writes to
 a temporary sibling file and never transcodes over the download in place.
 
@@ -26,3 +31,4 @@ The downloaded original is replaced only after all of these conditions pass:
 The final swap keeps a temporary backup and rolls back if the new file cannot
 be moved into the original path. A failed conversion, failed verification, or
 larger output leaves the completed original in place.
+
