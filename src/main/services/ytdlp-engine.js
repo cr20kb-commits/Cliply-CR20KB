@@ -1540,6 +1540,7 @@ class YtdlpEngine {
     this.userDataPath = options.userDataPath || null
     this.resourcesPath = options.resourcesPath || null
     this.ffmpegPath = options.ffmpegPath || null
+    this.handbrakePath = options.handbrakePath || null
     this.denoPath = options.denoPath || null
     this.cookieFile = options.cookieFile || null
     this.cookieManager = options.cookieManager || null
@@ -1645,6 +1646,20 @@ class YtdlpEngine {
     )
 
     return this.ffmpegPath
+  }
+
+  getHandbrakePath() {
+    if (this.handbrakePath) {
+      return this.handbrakePath
+    }
+
+    const name = process.platform === "win32" ? "HandBrakeCLI.exe" : "HandBrakeCLI"
+    this.handbrakePath = this.resolveBundled(
+      [["handbrake", name], [name]],
+      true
+    )
+
+    return this.handbrakePath
   }
 
   getDenoPath() {
@@ -2201,3 +2216,4 @@ module.exports = {
   KILL_GRACE_MS,
   SHUTDOWN_WAIT_MS
 }
+

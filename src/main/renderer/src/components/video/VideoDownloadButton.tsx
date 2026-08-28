@@ -260,7 +260,7 @@ export function VideoDownloadButton({
       {!videoDownloadMutation.isPending && (
         <div className="text-xs text-slate-500 dark:text-slate-500 text-center">
           {selectedCompactMode && selectedCompactMode !== "original"
-            ? "The original is replaced only after a smaller H.265 file passes verification"
+            ? "HandBrake output replaces the original only after it is smaller and verified"
             : "Video and audio will be merged automatically"}
         </div>
       )}
@@ -274,3 +274,4 @@ function compactModeLabel(mode?: string) {
   if (mode === "h265-480p") return "480p H.265"
   return "Original"
 }
+

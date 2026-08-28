@@ -255,14 +255,14 @@ describe("terminal outcome ownership", () => {
       status: "completed",
       progress: 100,
       filename: "clip.mp4",
-      message: "Compressed to 720p H.265"
+      message: "Compressed with HandBrake to 720p H.265"
     })
 
     expect((await settled).ok).toBe(true)
     expect(successToast).toHaveBeenCalledWith(
       "Video download completed!",
       expect.objectContaining({
-        description: "Compressed to 720p H.265 · Saved: clip.mp4"
+        description: "Compressed with HandBrake to 720p H.265 · Saved: clip.mp4"
       })
     )
   })

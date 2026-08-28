@@ -1,6 +1,6 @@
 {
   "name": "cliply-desktop",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Desktop YouTube downloader with segment support",
   "main": "src/main/index.js",
   "homepage": "./",
@@ -16,12 +16,13 @@
     "dev:main": "cross-env NODE_ENV=development nodemon --watch src/main --exec electron .",
     "dev:renderer": "cd src/main/renderer && npm run dev",
     "fetch:ytdlp": "node scripts/fetch-ytdlp.js",
+    "fetch:handbrake": "node scripts/fetch-handbrake.js",
     "smoke:ytdlp": "node scripts/smoke-ytdlp.js",
     "install:renderer": "cd src/main/renderer && npm install",
     "build:renderer": "cd src/main/renderer && npm run build",
     "build:main": "echo 'Main process ready for packaging'",
     "build:app": "npm run install:renderer && npm run build:renderer && npm run build:main",
-    "prepare:full": "npm run generate:icons && npm run build:app && npm run fetch:ytdlp",
+    "prepare:full": "npm run generate:icons && npm run build:app && npm run fetch:ytdlp && npm run fetch:handbrake",
     "prepack": "npm run prepare:full",
     "pack": "electron-builder --dir",
     "predist": "npm run prepare:full",
@@ -69,6 +70,7 @@
       "src/preload/**/*",
       "src/main/renderer/dist/**/*",
       "package.json",
+      "THIRD-PARTY-NOTICES.md",
       "!**/.DS_Store",
       "!**/node_modules",
       "!src/main/renderer/src/**/*",
@@ -171,6 +173,14 @@
           "to": "binaries/",
           "filter": [
             "ffmpeg.exe"
+          ]
+        },
+        {
+          "from": "binaries/windows/handbrake/",
+          "to": "binaries/handbrake/",
+          "filter": [
+            "HandBrakeCLI.exe",
+            "doc/**/*"
           ]
         },
         {

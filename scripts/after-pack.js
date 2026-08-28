@@ -52,6 +52,7 @@ const REQUIRED_BINARIES = {
   ],
   win32: [
     { label: "ffmpeg", segments: ["ffmpeg.exe"] },
+    { label: "HandBrakeCLI", segments: ["handbrake", "HandBrakeCLI.exe"] },
     { label: "deno", segments: ["deno", "deno.exe"] }
   ],
   linux: [
@@ -730,3 +731,4 @@ Object.assign(module.exports, {
   listFiles,
   LIPO_ARCHS
 })
+

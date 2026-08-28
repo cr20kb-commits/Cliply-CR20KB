@@ -1,8 +1,8 @@
 /**
  * Safe post-download H.265 compaction for CR20KB.
  *
- * The downloaded file is never encoded in place. A temporary sibling is
- * transcoded and verified first, then it must also be strictly smaller before
+ * HandBrakeCLI never encodes over the download in place. A temporary sibling
+ * is transcoded and independently verified by FFmpeg, then it must be smaller before
  * the original is swapped out. The swap keeps a backup until the new file is
  * in the original path so a failed rename can be rolled back.
  */
@@ -14,9 +14,9 @@ const { spawn } = require("child_process")
 
 const COMPACT_PROFILES = Object.freeze({
   original: null,
-  "h265-1080p": Object.freeze({ height: 1080, crf: 27, audioBitrate: "128k" }),
-  "h265-720p": Object.freeze({ height: 720, crf: 28, audioBitrate: "112k" }),
-  "h265-480p": Object.freeze({ height: 480, crf: 29, audioBitrate: "96k" })
+  "h265-1080p": Object.freeze({ width: 1920, height: 1080, quality: 24, audioBitrate: 128 }),
+  "h265-720p": Object.freeze({ width: 1280, height: 720, quality: 25, audioBitrate: 112 }),
+  "h265-480p": Object.freeze({ width: 854, height: 480, quality: 26, audioBitrate: 96 })
 })
 
 const COMPACT_MODE_LABELS = Object.freeze({
@@ -44,42 +44,44 @@ function siblingPath(filePath, kind, id = randomUUID()) {
 function buildTranscodeArgs(inputPath, outputPath, profile) {
   const extension = path.extname(outputPath).toLowerCase()
   const args = [
-    "-hide_banner",
-    "-nostdin",
-    "-y",
-    "-i",
+    "--input",
     inputPath,
-    "-map",
-    "0:v:0",
-    "-map",
-    "0:a?",
-    "-sn",
-    "-dn",
-    "-map_metadata",
-    "0",
-    "-vf",
-    `scale=-2:trunc(min(${profile.height}\\,ih)/2)*2`,
-    "-c:v",
-    "libx265",
-    "-preset",
+    "--output",
+    outputPath,
+    "--format",
+    extension === ".mkv" ? "av_mkv" : "av_mp4",
+    "--encoder",
+    "x265",
+    "--encoder-preset",
     "medium",
-    "-crf",
-    String(profile.crf),
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-b:a",
-    profile.audioBitrate
+    "--quality",
+    String(profile.quality),
+    "--maxWidth",
+    String(profile.width),
+    "--maxHeight",
+    String(profile.height),
+    "--crop-mode",
+    "none",
+    "--non-anamorphic",
+    "--modulus",
+    "2",
+    "--vfr",
+    "--audio",
+    "1",
+    "--aencoder",
+    "av_aac",
+    "--ab",
+    String(profile.audioBitrate),
+    "--mixdown",
+    "stereo",
+    "--keep-metadata"
   ]
 
-  // hvc1 makes HEVC more widely recognised by Apple/Windows players, while
-  // faststart keeps an MP4 usable before the whole file has been transferred.
+  // HandBrake's optimize flag moves the MP4 index to the front (fast start).
   if (extension === ".mp4" || extension === ".mov") {
-    args.push("-tag:v", "hvc1", "-movflags", "+faststart")
+    args.push("--optimize")
   }
 
-  args.push(outputPath)
   return args
 }
 
@@ -107,12 +109,12 @@ function buildVerifyArgs(filePath) {
   ]
 }
 
-function runFfmpeg(ffmpegPath, args, { spawnFn = spawn, onProcess = () => {} } = {}) {
+function runTool(executablePath, args, { spawnFn = spawn, onProcess = () => {} } = {}) {
   return new Promise((resolve) => {
     let child
 
     try {
-      child = spawnFn(ffmpegPath, args, {
+      child = spawnFn(executablePath, args, {
         stdio: ["ignore", "ignore", "pipe"],
         windowsHide: true
       })
@@ -145,7 +147,7 @@ function runFfmpeg(ffmpegPath, args, { spawnFn = spawn, onProcess = () => {} } =
 async function statNonEmpty(filePath) {
   const stat = await fs.stat(filePath)
   if (!stat.isFile() || stat.size <= 0) {
-    throw new Error("FFmpeg did not produce a non-empty file")
+    throw new Error("The media tool did not produce a non-empty file")
   }
   return stat
 }
@@ -192,6 +194,7 @@ async function replaceWithRollback(originalPath, compactPath, backupPath) {
 async function compactDownloadedVideo({
   inputPath,
   mode = "original",
+  handbrakePath,
   ffmpegPath,
   spawnFn = spawn,
   onProcess = () => {},
@@ -206,8 +209,17 @@ async function compactDownloadedVideo({
     return { filePath: inputPath, replaced: false, mode, reason: "original" }
   }
 
-  if (!inputPath || !ffmpegPath) {
-    return { filePath: inputPath, replaced: false, mode, reason: "ffmpeg_unavailable" }
+  if (!inputPath) {
+    return { filePath: inputPath, replaced: false, mode, reason: "input_unavailable" }
+  }
+
+  if (!handbrakePath || !ffmpegPath) {
+    return {
+      filePath: inputPath,
+      replaced: false,
+      mode,
+      reason: !handbrakePath ? "handbrake_unavailable" : "ffmpeg_unavailable"
+    }
   }
 
   const compactPath = siblingPath(inputPath, "compact", id)
@@ -216,8 +228,8 @@ async function compactDownloadedVideo({
 
   try {
     const original = await statNonEmpty(inputPath)
-    const transcode = await runFfmpeg(
-      ffmpegPath,
+    const transcode = await runTool(
+      handbrakePath,
       buildTranscodeArgs(inputPath, compactPath, profile),
       { spawnFn, onProcess }
     )
@@ -259,7 +271,7 @@ async function compactDownloadedVideo({
       }
     }
 
-    const verification = await runFfmpeg(
+    const verification = await runTool(
       ffmpegPath,
       buildVerifyArgs(compactPath),
       { spawnFn, onProcess }
@@ -324,3 +336,4 @@ module.exports = {
   compactDownloadedVideo,
   replaceWithRollback
 }
+

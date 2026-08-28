@@ -41,8 +41,8 @@ function createRunner({ updater = null, compactVideo, engine = {} } = {}) {
 }
 
 describe("compact mode", () => {
-  test("runs after download and reports an indeterminate FFmpeg phase", async () => {
-    const compactVideo = jest.fn(async ({ inputPath, mode, ffmpegPath }) => ({
+  test("runs HandBrake after download and reports an indeterminate phase", async () => {
+    const compactVideo = jest.fn(async ({ inputPath, mode, handbrakePath, ffmpegPath }) => ({
       filePath: inputPath,
       mode,
       replaced: true,
@@ -50,7 +50,10 @@ describe("compact mode", () => {
       originalSize: 1000,
       compactSize: 400
     }))
-    const engine = { getFfmpegPath: () => "/bin/ffmpeg" }
+    const engine = {
+      getFfmpegPath: () => "/bin/ffmpeg",
+      getHandbrakePath: () => "/bin/HandBrakeCLI"
+    }
     const { runner, events } = createRunner({ compactVideo, engine })
     const handle = new FakeHandle()
 
@@ -69,6 +72,7 @@ describe("compact mode", () => {
       expect.objectContaining({
         inputPath: "/downloads/a.mp4",
         mode: "h265-720p",
+        handbrakePath: "/bin/HandBrakeCLI",
         ffmpegPath: "/bin/ffmpeg"
       })
     )
@@ -76,12 +80,12 @@ describe("compact mode", () => {
       expect.objectContaining({
         status: "downloading",
         indeterminate: true,
-        message: "Compressing to 720p H.265..."
+        message: "Compressing with HandBrake to 720p H.265..."
       })
     )
     expect(events[events.length - 1]).toMatchObject({
       status: "completed",
-      message: "Compressed to 720p H.265"
+      message: "Compressed with HandBrake to 720p H.265"
     })
   })
 
@@ -96,7 +100,10 @@ describe("compact mode", () => {
     }))
     const { runner, events } = createRunner({
       compactVideo,
-      engine: { getFfmpegPath: () => "/bin/ffmpeg" }
+      engine: {
+        getFfmpegPath: () => "/bin/ffmpeg",
+        getHandbrakePath: () => "/bin/HandBrakeCLI"
+      }
     })
     const handle = new FakeHandle()
 
@@ -739,3 +746,4 @@ describe("concurrent downloads", () => {
     expect((await b).success).toBe(true)
   })
 })
+

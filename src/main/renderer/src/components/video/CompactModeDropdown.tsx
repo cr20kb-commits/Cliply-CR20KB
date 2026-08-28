@@ -46,11 +46,12 @@ export function CompactModeDropdown({
       footer={
         selected.value === "original" ? undefined : (
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Cliply keeps the original unless FFmpeg produces a verified,
-            strictly smaller file.
+            HandBrake compresses the video; Cliply keeps the original unless
+            FFmpeg verifies a strictly smaller result.
           </p>
         )
       }
     />
   )
 }
+

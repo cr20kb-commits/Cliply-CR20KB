@@ -117,7 +117,11 @@ function makePackage(platform, { engine = {}, binaries = [] } = {}) {
 // the full set of helper binaries each platform must ship
 const FULL_BINARIES = {
   darwin: ["ffmpeg", path.join("deno", "deno")],
-  win32: ["ffmpeg.exe", path.join("deno", "deno.exe")],
+  win32: [
+    "ffmpeg.exe",
+    path.join("handbrake", "HandBrakeCLI.exe"),
+    path.join("deno", "deno.exe")
+  ],
   linux: ["ffmpeg", path.join("deno", "deno")]
 }
 
@@ -286,7 +290,7 @@ describe("collectBinaries", () => {
         platform
       )
 
-      expect(found).toHaveLength(2)
+      expect(found).toHaveLength(platform === "win32" ? 3 : 2)
     }
   )
 
@@ -294,7 +298,7 @@ describe("collectBinaries", () => {
     "aborts on %s when ffmpeg is missing",
     async (platform) => {
       const { resourcesPath } = makePackage(platform, {
-        binaries: [FULL_BINARIES[platform][1]]
+        binaries: FULL_BINARIES[platform].slice(1)
       })
 
       await expect(
@@ -307,7 +311,7 @@ describe("collectBinaries", () => {
     "aborts on %s when deno is missing",
     async (platform) => {
       const { resourcesPath } = makePackage(platform, {
-        binaries: [FULL_BINARIES[platform][0]]
+        binaries: FULL_BINARIES[platform].slice(0, -1)
       })
 
       await expect(
@@ -315,6 +319,16 @@ describe("collectBinaries", () => {
       ).rejects.toThrow(/missing required binaries: deno/)
     }
   )
+
+  it("aborts on win32 when HandBrakeCLI is missing", async () => {
+    const { resourcesPath } = makePackage("win32", {
+      binaries: ["ffmpeg.exe", path.join("deno", "deno.exe")]
+    })
+
+    await expect(
+      collectBinaries(path.join(resourcesPath, "binaries"), "win32")
+    ).rejects.toThrow(/missing required binaries: HandBrakeCLI/)
+  })
 
   it("names every missing required binary at once", async () => {
     const { resourcesPath } = makePackage("darwin")
@@ -906,3 +920,4 @@ describe("afterPack", () => {
     ).resolves.toBeUndefined()
   })
 })
+

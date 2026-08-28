@@ -29,7 +29,7 @@ afterEach(async () => {
   directories = []
 })
 
-function fakeFfmpeg(steps) {
+function fakeTools(steps) {
   const calls = []
   const spawnFn = (_binary, args) => {
     const child = new EventEmitter()
@@ -46,7 +46,9 @@ function fakeFfmpeg(steps) {
     queueMicrotask(async () => {
       try {
         if (step.outputSize !== undefined) {
-          await fs.writeFile(args[args.length - 1], Buffer.alloc(step.outputSize, "c"))
+          const outputIndex = args.indexOf("--output")
+          const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : null
+          await fs.writeFile(outputPath, Buffer.alloc(step.outputSize, "c"))
         }
         if (step.stderr) child.stderr.emit("data", step.stderr)
         child.emit("close", step.code ?? 0, null)
@@ -68,9 +70,20 @@ test("accepts only the four public compact modes", () => {
   expect(isCompactMode("h264-720p")).toBe(false)
 })
 
+test("reports a missing downloaded path instead of silently blaming a tool", async () => {
+  await expect(
+    compactDownloadedVideo({
+      inputPath: null,
+      mode: "h265-720p",
+      handbrakePath: "HandBrakeCLI",
+      ffmpegPath: "ffmpeg"
+    })
+  ).resolves.toMatchObject({ replaced: false, reason: "input_unavailable" })
+})
+
 test("a verified smaller H.265 file replaces the original path", async () => {
   const { directory, inputPath } = await fixture()
-  const ffmpeg = fakeFfmpeg([
+  const tools = fakeTools([
     { code: 0, outputSize: 400 },
     { code: 0 }
   ])
@@ -78,8 +91,9 @@ test("a verified smaller H.265 file replaces the original path", async () => {
   const result = await compactDownloadedVideo({
     inputPath,
     mode: "h265-720p",
+    handbrakePath: "HandBrakeCLI",
     ffmpegPath: "ffmpeg",
-    spawnFn: ffmpeg.spawnFn,
+    spawnFn: tools.spawnFn,
     id: "success"
   })
 
@@ -90,33 +104,35 @@ test("a verified smaller H.265 file replaces the original path", async () => {
     compactSize: 400
   })
   expect((await fs.stat(inputPath)).size).toBe(400)
-  expect(ffmpeg.calls).toHaveLength(2)
-  expect(ffmpeg.calls[1]).toContain("-xerror")
+  expect(tools.calls).toHaveLength(2)
+  expect(tools.calls[0]).toContain("x265")
+  expect(tools.calls[1]).toContain("-xerror")
   expect(await fs.readdir(directory)).toEqual(["video.mp4"])
 })
 
 test("a larger result is discarded before verification", async () => {
   const { directory, inputPath } = await fixture()
-  const ffmpeg = fakeFfmpeg([{ code: 0, outputSize: 1200 }])
+  const tools = fakeTools([{ code: 0, outputSize: 1200 }])
 
   const result = await compactDownloadedVideo({
     inputPath,
     mode: "h265-1080p",
+    handbrakePath: "HandBrakeCLI",
     ffmpegPath: "ffmpeg",
-    spawnFn: ffmpeg.spawnFn,
+    spawnFn: tools.spawnFn,
     id: "larger"
   })
 
   expect(result.reason).toBe("not_smaller")
   expect(result.replaced).toBe(false)
-  expect(ffmpeg.calls).toHaveLength(1)
+  expect(tools.calls).toHaveLength(1)
   expect((await fs.stat(inputPath)).size).toBe(1000)
   expect(await fs.readdir(directory)).toEqual(["video.mp4"])
 })
 
 test("a smaller result that fails verification never replaces the source", async () => {
   const { directory, inputPath } = await fixture()
-  const ffmpeg = fakeFfmpeg([
+  const tools = fakeTools([
     { code: 0, outputSize: 350 },
     { code: 1, stderr: "Invalid data found" }
   ])
@@ -124,8 +140,9 @@ test("a smaller result that fails verification never replaces the source", async
   const result = await compactDownloadedVideo({
     inputPath,
     mode: "h265-480p",
+    handbrakePath: "HandBrakeCLI",
     ffmpegPath: "ffmpeg",
-    spawnFn: ffmpeg.spawnFn,
+    spawnFn: tools.spawnFn,
     id: "invalid"
   })
 
@@ -135,19 +152,19 @@ test("a smaller result that fails verification never replaces the source", async
   expect(await fs.readdir(directory)).toEqual(["video.mp4"])
 })
 
-test("the H.265 profile never upscales above the selected height", () => {
+test("the HandBrake H.265 profile caps dimensions and uses constant quality", () => {
   const args = buildTranscodeArgs("in.mp4", "out.mp4", {
+    width: 1280,
     height: 720,
-    crf: 28,
-    audioBitrate: "112k"
+    quality: 25,
+    audioBitrate: 112
   })
 
-  expect(args[args.indexOf("-c:v") + 1]).toBe("libx265")
-  expect(args[args.indexOf("-vf") + 1]).toBe(
-    "scale=-2:trunc(min(720\\,ih)/2)*2"
-  )
-  expect(args).toContain("hvc1")
-  expect(args).toContain("+faststart")
+  expect(args[args.indexOf("--encoder") + 1]).toBe("x265")
+  expect(args[args.indexOf("--quality") + 1]).toBe("25")
+  expect(args[args.indexOf("--maxWidth") + 1]).toBe("1280")
+  expect(args[args.indexOf("--maxHeight") + 1]).toBe("720")
+  expect(args).toContain("--optimize")
 })
 
 test("a failed swap restores the original from its backup", async () => {
@@ -162,3 +179,4 @@ test("a failed swap restores the original from its backup", async () => {
   expect((await fs.stat(inputPath)).size).toBe(1000)
   await expect(fs.stat(backup)).rejects.toMatchObject({ code: "ENOENT" })
 })
+

@@ -253,20 +253,23 @@ class DownloadRunner {
       status: STATUS.DOWNLOADING,
       progress: undefined,
       indeterminate: true,
-      message: `Compressing to ${compactModeLabel(compactMode)}...`
+      message: `Compressing with HandBrake to ${compactModeLabel(compactMode)}...`
     })
 
     let ffmpegPath = null
+    let handbrakePath = null
     try {
       ffmpegPath = this.engine.getFfmpegPath()
+      handbrakePath = this.engine.getHandbrakePath()
     } catch (error) {
-      console.warn(`[${downloadId}] compact mode could not find FFmpeg:`, describeError(error))
+      console.warn(`[${downloadId}] compact mode could not find its tools:`, describeError(error))
     }
 
     try {
       return await this.compactVideo({
         inputPath: result && result.filePath,
         mode: compactMode,
+        handbrakePath,
         ffmpegPath,
         isCancelled: () => {
           const current = this.active.get(downloadId)
@@ -506,7 +509,7 @@ function compactCompletionMessage(outcome) {
   if (!outcome || outcome.mode === "original") return undefined
 
   if (outcome.replaced) {
-    return `Compressed to ${compactModeLabel(outcome.mode)}`
+    return `Compressed with HandBrake to ${compactModeLabel(outcome.mode)}`
   }
 
   if (outcome.reason === "not_smaller") {
@@ -517,3 +520,4 @@ function compactCompletionMessage(outcome) {
 }
 
 module.exports = { DownloadRunner, STATUS }
+
